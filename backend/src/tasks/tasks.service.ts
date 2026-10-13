@@ -1,47 +1,66 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Task, TaskStatus } from './task.model';
+import { Task } from '@prisma/client'; // เปลี่ยนไปใช้ Type จาก @prisma/client
 import { CreateTaskDto } from './dto/create-task.dto';
-import { v4 as uuid } from 'uuid';
+import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class TasksService {
-  private tasks: Task[] = [];
+  // Inject PrismaService เข้ามาใช้งานผ่าน Constructor
+  constructor(private prisma: PrismaService) {}
 
-  getAllTasks(): Task[] {
-    return this.tasks;
+  async getAllTasks(): Promise<Task[]> {
+    return this.prisma.task.findMany({
+      orderBy: { createdAt: 'desc' }, // เรียงลำดับจากใหม่ไปเก่า
+    });
   }
 
-  getTaskById(id: string): Task {
-    const found = this.tasks.find((task) => task.id === id);
+  async getTaskById(id: string): Promise<Task> {
+    const found = await this.prisma.task.findUnique({
+      where: { id },
+    });
+
     if (!found) {
       throw new NotFoundException(`Task with ID "${id}" not found`);
     }
+
     return found;
   }
 
-  createTask(createTaskDto: CreateTaskDto): Task {
+  async createTask(createTaskDto: CreateTaskDto): Promise<Task> {
     const { title, description, priority } = createTaskDto;
 
-    const task: Task = {
-      id: uuid(),
-      title,
-      description,
-      status: TaskStatus.TODO,
-      priority,
-      createdAt: new Date(),
-    };
-    this.tasks.push(task);
-    return task;
+    return this.prisma.task.create({
+      data: {
+        title,
+        description,
+        priority,
+        // status และ createdAt จะถูกใส่ค่า Default ให้อัตโนมัติใน DB
+      },
+    });
   }
 
-  updateTaskStatus(id: string, status: TaskStatus): Task {
-    const task = this.getTaskById(id);
-    task.status = status;
-    return task;
+  async updateTaskStatus(
+    id: string,
+    updateTaskStatusDto: UpdateTaskStatusDto,
+  ): Promise<Task> {
+    // เช็กก่อนว่ามี Task นี้อยู่ในระบบจริงไหม
+    await this.getTaskById(id);
+
+    return this.prisma.task.update({
+      where: { id },
+      data: {
+        status: updateTaskStatusDto.status,
+      },
+    });
   }
 
-  deleteTask(id: string): void {
-    const found = this.getTaskById(id);
-    this.tasks = this.tasks.filter((task) => task.id !== found.id);
+  async deleteTask(id: string): Promise<void> {
+    // เช็กก่อนว่ามี Task นี้อยู่ในระบบจริงไหม
+    await this.getTaskById(id);
+
+    await this.prisma.task.delete({
+      where: { id },
+    });
   }
 }
