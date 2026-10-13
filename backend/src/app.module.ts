@@ -6,9 +6,10 @@ import { TasksService } from './tasks/tasks.service';
 import { TasksModule } from './tasks/tasks.module';
 import { PrismaService } from './prisma/prisma.service';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [TasksModule, PrismaModule],
+  imports: [TasksModule, PrismaModule, AuthModule],
   controllers: [AppController, TasksController],
   providers: [AppService, TasksService, PrismaService],
 })
